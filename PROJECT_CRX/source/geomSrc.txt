@@ -1,0 +1,33 @@
+#version 330 core
+layout (triangles) in;
+layout (triangle_strip, max_vertices = 3) out;
+
+uniform float explosionIntensity; 
+uniform float time; 
+
+in VS_OUT {
+    vec3 v_normal;
+    vec3 v_frag_coord;
+    vec2 v_tex_coords;
+} gs_in[];
+
+out GS_OUT {
+    vec3 g_normal;
+    vec3 fragPos;
+    vec2 g_tex_coords;
+} gs_out;
+
+void main() {
+    for(int i = 0; i < 3; ++i) {
+        vec3 dir = normalize(gs_in[i].v_normal);
+        vec3 offset = dir * explosionIntensity * time;
+
+        gl_Position = gl_in[i].gl_Position + vec4(offset, 0.0);
+        gs_out.g_normal = gs_in[i].v_normal;
+        gs_out.fragPos = gl_Position.xyz;
+        gs_out.g_tex_coords = gs_in[i].v_tex_coords;
+        EmitVertex();
+    }
+    EndPrimitive();
+    
+}

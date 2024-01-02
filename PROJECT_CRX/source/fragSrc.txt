@@ -1,0 +1,51 @@
+#version 330 core
+
+in GS_OUT {
+    vec3 g_normal;
+    vec3 fragPos;
+    vec2 g_tex_coords;
+} fs_in;
+
+out vec4 FragColor;
+
+struct Light{
+    vec3 light_pos; 
+    float ambient_strength; 
+    float diffuse_strength; 
+    float specular_strength; 
+
+    float constant;
+    float linear;
+    float quadratic;
+};
+
+uniform Light light;
+uniform sampler2D MyTexture;
+uniform float shininess; 
+uniform vec3 materialColour; 
+uniform vec3 u_view_pos;
+
+precision mediump float;
+
+float specularCalculation(vec3 N, vec3 L, vec3 V ){
+    vec3 R = reflect (-L,N); 
+    float cosTheta = dot(R , V);
+    float spec = pow(max(cosTheta,0.0), 32.0); 
+    return light.specular_strength * spec;
+}
+
+void main() {
+    vec3 N = normalize(fs_in.g_normal);
+    vec3 V = normalize(u_view_pos - fs_in.fragPos); 
+    vec3 R = reflect(-V,N); 
+
+    vec3 L = normalize(light.light_pos - fs_in.fragPos) ;
+
+    float specular = specularCalculation( N, L, V);
+    float diffuse = light.diffuse_strength * max(dot(N,L),0.0);
+    float distance = length(light.light_pos - fs_in.fragPos);
+    float attenuation = 1 / (light.constant + light.linear * distance + light.quadratic * distance * distance);
+    float light = light.ambient_strength + attenuation * (diffuse + specular); 
+    vec4 texColor = texture(MyTexture, fs_in.g_tex_coords); 
+    FragColor = texColor * vec4(vec3(light), 1.0);
+} 

@@ -1,0 +1,19 @@
+#version 400 core
+out vec4 FragColor;
+precision mediump float; 
+
+in GS_OUT {
+    vec3 g_normal;
+    vec3 fragPos;
+    vec2 g_tex_coords;
+} fs_in;
+
+void main() { 
+
+	float distance = sqrt(fs_in.fragPos.x*fs_in.fragPos.x + fs_in.fragPos.y*fs_in.fragPos.y); 
+	vec3 yellowColor = vec3(1.0, 1.0, 0.0); 
+	vec3 redColor = vec3(1.0, 0.0, 0.0); 
+	vec3 color = mix(yellowColor, redColor, smoothstep(1.9, 2.15, distance)); 
+	
+    FragColor = vec4(color, 1.0); 
+}

@@ -1,0 +1,34 @@
+#version 430 core
+
+layout (local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
+
+struct Particle {
+    vec4 position;
+    vec4 color;
+};
+
+layout(std430, binding = 0) buffer particuleBuffer {
+    Particle particles[];
+};
+
+uniform int numParticles;
+uniform float time;
+
+void main() {
+    uint id = gl_GlobalInvocationID.x;
+    if (id < numParticles) {
+        // Générer des coordonnées sphériques aléatoires
+        float theta = 2.0 * 3.14159265 * fract(sin(dot(vec2(id, time), vec2(12.9898, 78.233))) * 43758.5453);
+        float phi = acos(1.0 - 2.0 * fract(sin(dot(vec2(id, time + 1234.0), vec2(93.9898, 67.345))) * 24634.6345));
+        float radius = 0.5; // Rayon de la sphère
+
+        // Convertir en coordonnées cartésiennes
+        float randomX = radius * sin(phi) * cos(theta);
+        float randomY = radius * sin(phi) * sin(theta);
+        float randomZ = radius * cos(phi);
+
+        // Position et couleur des particules
+        particles[id].position = vec4(randomX, randomY, randomZ, 1.0);
+        particles[id].color = vec4(1, 0, 0, 1.0);
+    }
+}

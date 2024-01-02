@@ -1,0 +1,23 @@
+#version 330 core
+
+in GS_OUT {
+    vec3 g_normal;
+    vec3 fragPos;
+    vec2 g_tex_coords;
+} fs_in;
+
+out vec4 FragColor;
+
+uniform samplerCube cubemapSampler;
+uniform vec3 u_view_pos;
+
+precision mediump float;
+
+
+void main() { 
+    vec3 N = normalize(fs_in.g_normal);
+    vec3 V = normalize(u_view_pos - fs_in.fragPos); 
+    vec3 R = reflect(-V,N);
+
+    FragColor = texture(cubemapSampler,R) + vec4(R*0.3, 1.0);
+} 

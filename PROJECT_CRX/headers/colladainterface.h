@@ -1,0 +1,50 @@
+#ifndef COLLADAINTERFACE_H
+#define COLLADAINTERFACE_H
+
+#include <iostream>
+#include <vector>
+#include <map>
+#include <sstream>
+#include <iterator>
+
+//#include "GL3/gl3.h"
+#include <tinyxml.h>
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
+
+struct SourceData {
+  GLenum type;
+  unsigned int size;
+  unsigned int stride;
+  void* data;
+};
+
+typedef std::map<std::string, SourceData> SourceMap;
+
+struct ColGeom {
+  std::string name;
+  SourceMap map;
+  GLenum primitive;
+  int index_count;
+  int numVertices;
+  unsigned short* indices;
+};
+
+SourceData readSource(TiXmlElement*);
+
+class ColladaInterface {
+
+public:
+  ColladaInterface() {};
+  static void readColladaFile(const char*, std::vector<ColGeom>*);
+  static void readGeometries(std::vector<ColGeom>*, const char*);
+  static void freeGeometries(std::vector<ColGeom>*);
+  
+};
+
+#endif

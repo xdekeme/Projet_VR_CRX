@@ -1,0 +1,14 @@
+#version 330 core
+layout (location = 0) in vec4 position;
+layout (location = 1) in vec4 color;
+
+uniform mat4 V; // Matrice de vue
+uniform mat4 P; // Matrice de projection
+uniform mat4 M; // Matrice de projection
+
+out vec4 fragColor;
+
+void main() {
+    gl_Position = P * V * M * position;
+    fragColor = color; // Transmettez la couleur au fragment shader
+}
