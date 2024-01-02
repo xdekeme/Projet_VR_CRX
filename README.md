@@ -12,6 +12,8 @@ SpaceshipTraveller/
     ├── PROJECT_CRX/
     │   ├── code/
     │   │   ├── main.cpp
+    │   │   ├── colladainterface.cpp
+    │   │   ...
     │   ├── headers/
     │   │   ├── colladaanimation.h
     │   │   ├── collision.h
