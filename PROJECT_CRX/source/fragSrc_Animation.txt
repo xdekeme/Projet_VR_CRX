@@ -7,12 +7,11 @@ in vec4 bw;
 out vec4 color;
 
 uniform sampler2D diff_texture;
-
-vec3 lightPos = vec3(0.2, 1.0, -3.0);
+uniform vec3 light_pos;
 
 void main()
 {
-    vec3 lightDir = normalize(lightPos - v_pos);
+    vec3 lightDir = normalize(light_pos - v_pos);
     float diff = max(dot(v_normal, lightDir), 0.2);
     vec3 dCol = diff * texture(diff_texture, tex_cord).rgb; 
     color = vec4(dCol, 1);

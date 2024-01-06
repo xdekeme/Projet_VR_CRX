@@ -10,12 +10,14 @@ out VS_OUT {
     vec3 v_frag_coord; 
     vec2 v_tex_coords;
     vec4 FragPosLightSpace;
+    vec4 FragPosLightSpace2;
 } vs_out;
 
 uniform mat4 M; 
 uniform mat4 V; 
 uniform mat4 P; 
 uniform mat4 lightSpaceMatrix;
+uniform mat4 lightSpaceMatrix2;
 
 void main() { 
     mat3 normalMatrix = transpose(inverse(mat3(M)));
@@ -31,6 +33,7 @@ void main() {
 
     gl_Position = P * V * M * frag_coord;
     vs_out.FragPosLightSpace = lightSpaceMatrix * M * frag_coord;
+    vs_out.FragPosLightSpace2 = lightSpaceMatrix2 * M * frag_coord;
 }
 
 

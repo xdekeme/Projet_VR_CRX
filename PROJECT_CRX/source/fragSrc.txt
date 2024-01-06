@@ -47,5 +47,7 @@ void main() {
     float attenuation = 1 / (light.constant + light.linear * distance + light.quadratic * distance * distance);
     float light = light.ambient_strength + attenuation * (diffuse + specular); 
     vec4 texColor = texture(MyTexture, fs_in.g_tex_coords); 
-    FragColor = texColor * vec4(vec3(light), 1.0);
+    vec3 finalColor = texColor.rgb * vec3(light);
+
+    FragColor = vec4(finalColor, 1.0);
 } 

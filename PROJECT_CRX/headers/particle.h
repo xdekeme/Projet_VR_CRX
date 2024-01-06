@@ -42,37 +42,39 @@ public:
 
 	void initParticle() {
 		for (int i = 0; i < numParticles; ++i) {
-			particles[i].x = randomFloat(0.0f, .0010f * world_scale);
-			particles[i].y = randomFloat(-0.0f, 0.5f * world_scale);
-			particles[i].vx = randomFloat(-0.005f * world_scale, 0.005f * world_scale);
-			particles[i].vy = randomFloat(.5f * world_scale, .7f * world_scale);
+			particles[i].x = randomFloat(0.0f, .001);
+			particles[i].y = randomFloat(-0.0f, 0.00f );
+			particles[i].vx = randomFloat(-0.007f , 0.007f);
+			particles[i].vy = randomFloat(0.5f , 2.7f );
 
-			particles[i].lifespan = 80.0f * world_scale;  // Reset lifespan
+			particles[i].lifespan = 600.0f;  // Reset lifespan
 
-			particles[i].z = randomFloat(0.0f, .0010f * world_scale);
-			particles[i].vz = randomFloat(-0.005f * world_scale, 0.005f * world_scale);
+			particles[i].z = randomFloat(0.0f, .001);
+			particles[i].vz = randomFloat(-0.007f, 0.007f);
     	}
 	}
 
 	void updateParticle(float deltaTime) {
 		for (int i = 0; i < numParticles; ++i) {
             particles[i].x += particles[i].vx;
-			particles[i].vy -= 0.05 * world_scale;
+			particles[i].vy -= 0.1;
 			particles[i].y += particles[i].vy*deltaTime;
 			particles[i].z += particles[i].vz;
+
+
 			
 
             particles[i].lifespan -= 1.0f * world_scale;
             if (particles[i].lifespan <= 0.0f) {
-				particles[i].x = randomFloat(0.0f, .0010f * world_scale);
-                particles[i].y = randomFloat(-0.0f, 0.2f * world_scale);
-                particles[i].vx = randomFloat(-0.002f * world_scale, 0.002f * world_scale);
-                particles[i].vy = randomFloat(0.8f * world_scale, 1.0f * world_scale);
+				particles[i].x = randomFloat(0.0f, .001);
+                particles[i].y = randomFloat(-0.0f, 0.00f );
+                particles[i].vx = randomFloat(-0.007f , 0.007f);
+                particles[i].vy = randomFloat(0.5f , 2.7f );
 
-                particles[i].lifespan = 80.0f * world_scale;  // Reset lifespan
+                particles[i].lifespan = 600.0f;  // Reset lifespan
 
-				particles[i].z = randomFloat(0.0f, .0010f * world_scale);
-				particles[i].vz = randomFloat(-0.002f * world_scale, 0.002f * world_scale);
+				particles[i].z = randomFloat(0.0f, .001);
+				particles[i].vz = randomFloat(-0.007f, 0.007f);
             }
         }
 	}

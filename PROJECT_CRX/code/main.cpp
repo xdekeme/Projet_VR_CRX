@@ -41,14 +41,13 @@ float lastY = (float)height / 2.0;
 bool firstMouse = true;
 float world_scale = 10.0;
 //---Camera---
-glm::vec3 init_Pos_camera = glm::vec3(13.0, 5 * world_scale, 13.0);
+glm::vec3 init_Pos_camera = glm::vec3(0.0, 0.0, 60.0);
 Camera camera(init_Pos_camera);
 float distanceFromCamera = 5.0f;
 float offsetBelowCamera = -2.0f;
 float offsetRight = 0.1f;
 float offsetUp = 0.1f;
 //---Game---
-glm::vec3 init_Pos_spaceship = glm::vec3(13.0, 5 * world_scale, 13.0);
 glm::vec3 goldPosition;
 uint score = 0;
 //---Physcial world---
@@ -80,16 +79,19 @@ float rotationAngleMeteorite = glm::radians(90.0f);
 int numParticlesNebuleuse = 320;
 GLuint vaoNebuleuse;
 //--Shadows---
-glm::vec3 lightPos(-0.0f, 0.0f, 5 * world_scale);
+glm::vec3 lightPos(-5.0f, 0.0f, 50.0f);
+glm::vec3 lightPos2(5.0f, 0.0f, 50.0f);
 glm::mat4 lightProjection;
 glm::mat4 lightView;
+glm::mat4 lightView2;
 glm::mat4 lightSpaceMatrix;
-float near_plane = 1 * world_scale; 
-float far_plane = 10 * world_scale;
+glm::mat4 lightSpaceMatrix2;
+float near_plane = 1; 
+float far_plane = 80;
 const unsigned int SHADOW_WIDTH = 1024 * world_scale; 
 const unsigned int SHADOW_HEIGHT = 1024 * world_scale;
-unsigned int depthMapFBO;
-unsigned int depthMap;
+unsigned int depthMapFBO1, depthMap1;
+unsigned int depthMapFBO2, depthMap2;
 float borderColor[] = { 1.0, 1.0, 1.0, 1.0 };
 //--Spaceship---
 glm::vec3 spaceshipFront= glm::vec3(0, 0, -1); 
@@ -110,14 +112,14 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void loadCubemapFace(const char * file, const GLenum& targetCube);
 unsigned int loadTexture(const char *path);
-void init_shadow();
+void init_shadow(unsigned int& depthMapFBO, unsigned int& depthMap);
+void add_shadows(unsigned int depthMapFBO, Shader simpleDepthShader, glm::mat4 modelRocket, Object rocket_shadow, Object sun, Object sun_shadow);
 void init_NebuleuseCloud();
 void populateBuffer_Nebuleuse();
 void drawNebuleuse();
 void check_get_gold(Object &gold);
 glm::vec3 generateNewGoldPosition(); 
 void check_max_GPU();
-//SPACESHIP
 void setup_spaceship();
 void updateSpaceship(btRigidBody* spaceshipRigidBody, Object& spaceship, Shader& shader);
 
@@ -210,7 +212,8 @@ int main(int argc, char* argv[])
 #endif
 	//check_max_GPU(); //To check what is the max capacity of the GPU
 
-	init_shadow();
+	init_shadow(depthMapFBO1, depthMap1);
+	init_shadow(depthMapFBO2, depthMap2);
 
 	//Init random
 	std::srand(std::time(0));
@@ -266,7 +269,7 @@ int main(int argc, char* argv[])
 
 	//OBJECT FILE PATH
 	char sphere_path[] = PATH_TO_OBJECTS "/sphere_coarse.obj";
-	char coin_path[] = PATH_TO_OBJECTS "/piece.obj";
+	char coin_path[] = PATH_TO_OBJECTS "/Coin.obj";
 	char meteorite_path[] = PATH_TO_OBJECTS "/meteorite.obj";
 	char toyrocket_path[] = PATH_TO_OBJECTS "/Toy_Rocket.obj";
 	char pathCube[] = PATH_TO_OBJECTS "/cube.obj";
@@ -318,7 +321,8 @@ int main(int argc, char* argv[])
 	std::string pathMeteoriteTexture = PATH_TO_TEXTURE "/meteorite.jpeg";
 	std::string pathFootballTexture = PATH_TO_TEXTURE "/football.jpg";
 	std::string pathGoldTexture = PATH_TO_TEXTURE "/gold.jpg";
-	std::string pathCoinTexture = PATH_TO_TEXTURE "/Coin_Gold_albedo.png";
+	std::string pathCoinTexture = PATH_TO_TEXTURE "/coin_mario.png";
+	std::string pathSpaceshipTexture = PATH_TO_TEXTURE "/spaceship.jpg";
 	std::string pathAnimationTexture = PATH_TO_TEXTURE "/animation.png";
 
 	//LOAD TEXTURES
@@ -330,6 +334,7 @@ int main(int argc, char* argv[])
 	unsigned int FootballTexture = loadTexture(pathFootballTexture.c_str());
 	unsigned int GoldTexture = loadTexture(pathGoldTexture.c_str());
 	unsigned int CoinTexture = loadTexture(pathCoinTexture.c_str());
+	unsigned int SpaceshipTexture = loadTexture(pathSpaceshipTexture.c_str());
 	unsigned int AnimationTexture = colladaAnim.createTexture(pathAnimationTexture.c_str());
 	
 
@@ -369,7 +374,8 @@ int main(int argc, char* argv[])
 	rocket.model = glm::scale(rocket.model, glm::vec3(0.5 * world_scale, 0.5 * world_scale, 0.5 * world_scale));
 	rocket.model = glm::rotate(rocket.model, glm::radians(90.0f), glm::vec3(0, 0, 1));
 	rocket.model = glm::rotate(rocket.model, glm::radians(180.0f), glm::vec3(1, 0, 0));	
-	//---Rocket Shadow---
+	glm::mat4 modelRocket;
+	modelRocket = glm::scale(rocket.model, glm::vec3(.1,.1,.1));	
 	rocket_shadow.model = rocket.model; 
 	//---General parameters for planets rotation
     glm::vec3 rotationPoint(0.0f, 1.0f, 0.0f);
@@ -377,7 +383,6 @@ int main(int argc, char* argv[])
     float rotationAngle = glm::radians(90.0f);
 	float rotationAngleZ = glm::radians(0.0f);
 	float rotationAngleMoon = glm::radians(0.0f);
-	glm::vec3 light_pos = glm::vec3(0.0, 0.0, 5 * world_scale);
 	glm::mat4 model = glm::mat4(1.0);
 	model = glm::translate(model, glm::vec3(0.0, 0.0, 0.0));
 	model = glm::scale(model, glm::vec3(0.5 * world_scale, 0.5 * world_scale, 0.5 * world_scale));
@@ -454,9 +459,11 @@ int main(int argc, char* argv[])
 		double now = glfwGetTime();
 
 		//Light parameters
-		lightProjection = glm::ortho(-10 * world_scale, 10 * world_scale, -10 * world_scale, 10 * world_scale, near_plane, far_plane);
+		lightProjection = glm::ortho(-100.0f , 100.0f , -100.0f , 100.0f , near_plane, far_plane);
         lightView = glm::lookAt(lightPos, glm::vec3(0.0f), glm::vec3(0.0, 1.0, 0.0));
         lightSpaceMatrix = lightProjection * lightView;
+		lightView2 = glm::lookAt(lightPos2, glm::vec3(0.0f), glm::vec3(0.0, 1.0, 0.0));
+        lightSpaceMatrix2 = lightProjection * lightView2;
 
 		// Enable depth testing
 		glEnable(GL_DEPTH_TEST);
@@ -472,7 +479,6 @@ int main(int argc, char* argv[])
 		float deltaTime = now - lastFrame;
     	lastFrame = now;
 		time += 1;
-		auto delta = light_pos;
 
 		//Set parameters for the explosion
 		if (explosion){
@@ -486,14 +492,9 @@ int main(int argc, char* argv[])
 		//Shadow shader
 		simpleDepthShader.use();
         simpleDepthShader.setMatrix4("lightSpaceMatrix", lightSpaceMatrix);
-        glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
-		glClear(GL_DEPTH_BUFFER_BIT);
-		glActiveTexture(GL_TEXTURE0);
-		simpleDepthShader.setMatrix4("model", sun.model);
-		sun_shadow.draw();
-		simpleDepthShader.setMatrix4("model", rocket.model);		
-		rocket_shadow.draw();	
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		add_shadows(depthMapFBO1, simpleDepthShader, modelRocket, rocket_shadow, sun, sun_shadow);
+		simpleDepthShader.setMatrix4("lightSpaceMatrix", lightSpaceMatrix2);
+		add_shadows(depthMapFBO2, simpleDepthShader, modelRocket, rocket_shadow, sun, sun_shadow);
 
 		//Basic shader
 		shader.use();
@@ -502,7 +503,7 @@ int main(int argc, char* argv[])
 		shader.setMatrix4("V", view);
 		shader.setMatrix4("P", perspective);
 		shader.setVector3f("u_view_pos", camera.Position);
-		shader.setVector3f("light.light_pos", delta);
+		shader.setVector3f("light.light_pos", lightPos);
 		shader.setMatrix4("lightSpaceMatrix", lightSpaceMatrix);
 		shader.setInteger("MyTexture", 1);
 		shader.setInteger("shadowMap", 2);
@@ -531,7 +532,7 @@ int main(int argc, char* argv[])
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, SunTexture);
 		glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, depthMap);
+        glBindTexture(GL_TEXTURE_2D, depthMap1);
 		//sun.draw();
 
 		//Draw moon 
@@ -557,10 +558,9 @@ int main(int argc, char* argv[])
 				setup_meteorite();
 				setup_meteorite_check = true;
 			}
-			//updateMeteorite(CollisionObject1, collision1, CollisionObject1Transfo, MeteoriteTexture, shader);
 			updateMeteorite(CollisionObject2, collision2, CollisionObject2Transfo, MeteoriteTexture, shader);
 		}
-		DrawMeteorite(shader, MeteoriteTexture, deltaTime);
+		//DrawMeteorite(shader, MeteoriteTexture, deltaTime); //A DECOMMENTER!!!!!!!!!!!!!!!!!!
 
 		//Draw collada object (Sphere)
 		glm::mat4 inverseModelCollada = glm::transpose(glm::inverse(sphere.model));
@@ -571,11 +571,13 @@ int main(int argc, char* argv[])
 		sphere.drawCollada(&geom_vec);
 		
 		//Draw gold
+		gold.model = glm::rotate(gold.model, glm::radians(0.5f), glm::vec3(0, goldPosition.y, 0));
 		glm::mat4 inverseModelGold = glm::transpose(glm::inverse(gold.model));
 		shader.setMatrix4("M", gold.model);
 		shader.setMatrix4("itM", inverseModelGold);
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, GoldTexture);
+		//glBindTexture(GL_TEXTURE_2D, CoinTexture); // A DECOMMENTER POUR RAPHAEL!!!!!!!!!!!!!!!!!!
 		gold.draw();
 		check_get_gold(gold);
 
@@ -588,16 +590,20 @@ int main(int argc, char* argv[])
 		BumpShader.setMatrix4("P", perspective);
 		BumpShader.setVector3f("u_view_pos", camera.Position);
 		BumpShader.setMatrix4("lightSpaceMatrix", lightSpaceMatrix);
-		BumpShader.setVector3f("light.light_pos", delta);
+		BumpShader.setMatrix4("lightSpaceMatrix2", lightSpaceMatrix2);
+		BumpShader.setVector3f("light.light_pos", lightPos);
 		BumpShader.setInteger("diffuseMap", 1);
 		BumpShader.setInteger("normalMap", 2);
-		BumpShader.setInteger("shadowMap", 3);		
+		BumpShader.setInteger("shadowMap", 3);	
+		BumpShader.setInteger("shadowMap2", 4);		
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, SunTexture);
 		glActiveTexture(GL_TEXTURE2);
 		glBindTexture(GL_TEXTURE_2D, SunTexture_normal);
 		glActiveTexture(GL_TEXTURE3);
-        glBindTexture(GL_TEXTURE_2D, depthMap);
+        glBindTexture(GL_TEXTURE_2D, depthMap1);
+		glActiveTexture(GL_TEXTURE4);
+        glBindTexture(GL_TEXTURE_2D, depthMap2);
 		sun_bumping.draw();
 
 		//Particles 
@@ -616,9 +622,11 @@ int main(int argc, char* argv[])
 
 		//Rocket 
 		shaderRocket.use();
-		glm::mat4 inverseRocket = glm::transpose( glm::inverse(rocket.model));
 		rocket.model = glm::rotate(rocket.model, glm::radians(2.0f), glm::vec3(0, 0, 1));
-		shaderRocket.setMatrix4("M", rocket.model);
+		modelRocket = glm::mat4(rotationQuaternion);
+		modelRocket = glm::scale(glm::translate(glm::rotate(modelRocket, glm::radians(90.0f), glm::vec3(0, 0, 1)), glm::vec3(0.0, 0.0, -40.0)), glm::vec3(.5*world_scale,.5*world_scale,.5*world_scale));
+		glm::mat4 inverseRocket = glm::transpose( glm::inverse(modelRocket));
+		shaderRocket.setMatrix4("M", modelRocket);
 		shaderRocket.setMatrix4("itM", inverseRocket);
 		shaderRocket.setMatrix4("V", view);
 		shaderRocket.setMatrix4("P", perspective);
@@ -633,13 +641,13 @@ int main(int argc, char* argv[])
 		shaderSpaceShip.setMatrix4("V", view);
 		shaderSpaceShip.setMatrix4("P", perspective);
 		shaderSpaceShip.setVector3f("u_view_pos", camera.Position);
-		shaderSpaceShip.setVector3f("light.light_pos", delta);
+		shaderSpaceShip.setVector3f("light.light_pos", lightPos);
 		shaderSpaceShip.setFloat("explosionIntensity", explosionIntensity);
 		shaderSpaceShip.setFloat("time", explosionTime);
 		shaderSpaceShip.setInteger("MyTexture", 1);
 		glDepthFunc(GL_LEQUAL);
 		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, MoonTexture);
+		glBindTexture(GL_TEXTURE_2D, SpaceshipTexture);
 		spaceship.draw();
 
 		//Animation
@@ -650,6 +658,7 @@ int main(int argc, char* argv[])
 		colladaAnim.getPose(animation, skeleton, now, currentPose, identityAnimation, globalInverseTransform);
 		AnimationShader.setMatrix4_count("bone_transforms", currentPose[0], boneCount);
 		AnimationShader.setInteger("diff_texture", 0);
+		AnimationShader.setVector3f("light_pos", lightPos);
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, AnimationTexture);
 		colladaAnim.drawAnimation(vao, indices);
@@ -750,8 +759,6 @@ void DrawMeteorite(Shader shader, unsigned int texture, float deltaTime){
 
 //SETUP METEORITE
 void setup_meteorite(){
-	/*CollisionObject1 = Collision::createRigidBody(dynamicsWorld, 1.0f, 1000, btVector3(5,0,0));
-	CollisionObject1->setLinearVelocity(btVector3(1,0,0));*/
 	CollisionObject2 = Collision::createRigidBody(dynamicsWorld, 1 * world_scale, 1000, btVector3(15,0,0));
 	CollisionObject2->setLinearVelocity(btVector3(-2,0,0));
 }
@@ -806,8 +813,8 @@ void updateSpaceship(btRigidBody* spaceshipRigidBody, Object& spaceship, Shader&
 
 //GENERAL FUNCTIONS
 void RenderingShader(Shader shader){
-    float ambient = 0.2;
-    float diffuse = 0.8 ;
+    float ambient = 0.5;		//0.2/0.8/0.5
+    float diffuse = 3.0 ;
     float specular = 0.5;
     glm::vec3 materialColour = glm::vec3(0.5, 0.6, 0.8);
 
@@ -817,9 +824,9 @@ void RenderingShader(Shader shader){
     shader.setFloat("light.ambient_strength", ambient);
     shader.setFloat("light.diffuse_strength", diffuse);
     shader.setFloat("light.specular_strength", specular);
-    shader.setFloat("light.constant", 1.0);
-    shader.setFloat("light.linear", 0.09);
-    shader.setFloat("light.quadratic", 0.032);
+    shader.setFloat("light.constant", 1.0);		// 1.0/0.14/0.07
+    shader.setFloat("light.linear", 0.005);
+    shader.setFloat("light.quadratic", 0.0006);
 }
 
 
@@ -960,7 +967,7 @@ void loadCubemapFace(const char * path, const GLenum& targetFace)
 
 
 //INIT SHADOWS
-void init_shadow(){
+void init_shadow(unsigned int& depthMapFBO, unsigned int& depthMap){
 	glGenFramebuffers(1, &depthMapFBO);
     glGenTextures(1, &depthMap);
     glBindTexture(GL_TEXTURE_2D, depthMap);
@@ -976,6 +983,19 @@ void init_shadow(){
     glDrawBuffer(GL_NONE);
     glReadBuffer(GL_NONE);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void add_shadows(unsigned int depthMapFBO, Shader simpleDepthShader, glm::mat4 modelRocket, Object rocket_shadow, Object sun, Object sun_shadow){
+	//glViewport(0, 0, width, height);
+	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+	glClear(GL_DEPTH_BUFFER_BIT);
+	glActiveTexture(GL_TEXTURE0);
+	simpleDepthShader.setMatrix4("model", modelRocket);		
+	rocket_shadow.draw();
+	simpleDepthShader.setMatrix4("model", sun.model);		
+	sun_shadow.draw();		
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	//glViewport(0, 0, width*2, height*2);
 }
 
 //NEBULEUSE FUNCTIONS TO DRAW
