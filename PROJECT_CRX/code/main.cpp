@@ -31,11 +31,26 @@
 #include "../headers/collision.h"
 #include "../headers/particle.h"
 
+//DEFINE STRUCTURE
+struct ParticleNebuleuse {
+    glm::vec4 position;
+    glm::vec4 color;
+};
+
+struct LaunchedSphere {
+    Object sphereObject;
+    btRigidBody* sphereRigidBody;
+	btTransform sphereRigidBodyTransfo;
+    float timeAlive;
+
+    LaunchedSphere(Object obj, btRigidBody* body, btTransform bodytransfo) : sphereObject(obj), sphereRigidBody(body), sphereRigidBodyTransfo(bodytransfo), timeAlive(0.0f)  {}
+};
+
 
 //GLOBAL VARIABLES INIT
 //---Context---
-const int width = 700;
-const int height = 700; 
+const int width = 1080;
+const int height = 1080; 
 float lastX = (float)width / 2.0;
 float lastY = (float)height / 2.0;
 bool firstMouse = true;
@@ -50,6 +65,8 @@ float offsetUp = 0.1f;
 //---Game---
 glm::vec3 goldPosition;
 uint score = 0;
+std::vector<LaunchedSphere> launchedSpheres;
+int count_launched_ball = 0;
 //---Physcial world---
 btDynamicsWorld* dynamicsWorld;
 btRigidBody* CollisionObject1;
@@ -76,7 +93,7 @@ int numberOfMeteorites = 15;
 float rotationSpeedMeteorite{glm::radians(45.0f)}; 
 float rotationAngleMeteorite = glm::radians(90.0f);
 //---Nebuleuse
-int numParticlesNebuleuse = 320;
+int numParticlesNebuleuse = 1000;
 GLuint vaoNebuleuse;
 //--Shadows---
 glm::vec3 lightPos(-5.0f, 0.0f, 50.0f);
@@ -97,6 +114,13 @@ float borderColor[] = { 1.0, 1.0, 1.0, 1.0 };
 glm::vec3 spaceshipFront= glm::vec3(0, 0, -1); 
 glm::vec3 currentSpaceShipPosition;
 bool lock_vision = true;
+//--Teleportation--
+bool earth_pos = false;
+bool rocket_pos = false;
+//--Cubemap--
+GLuint cubeMapTexture;
+GLuint cubeMapTextureGO;
+
 
 
 //DEFINE ALL FUNCTIONS
@@ -109,6 +133,7 @@ void updateMeteorite(btRigidBody* CollisionObject1, Object collision1, btTransfo
 void RenderingShader(Shader shader);
 void processInput(GLFWwindow* window, Object* spaceship);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void loadCubemapFace(const char * file, const GLenum& targetCube);
 unsigned int loadTexture(const char *path);
@@ -122,13 +147,13 @@ glm::vec3 generateNewGoldPosition();
 void check_max_GPU();
 void setup_spaceship();
 void updateSpaceship(btRigidBody* spaceshipRigidBody, Object& spaceship, Shader& shader);
+void check_collision_sun_spaceship(btRigidBody* spaceshipRigidBody, btRigidBody* CollisionObject3);
+void create_launch_ball(Object launch_ball);
+void updateLaunchedSpheres(Object launch_ball, float deltaTime, Shader shader, unsigned int texture);
+void load_space_cubemap();
+void load_GO_cubemap();
+void loadCubeMapTexture(const std::string& basePath, GLuint textureID);
 
-
-//DEFINE STRUCTURE
-struct ParticleNebuleuse {
-    glm::vec4 position;
-    glm::vec4 color;
-};
 
 
 #ifndef NDEBUG
@@ -178,6 +203,7 @@ int main(int argc, char* argv[])
 		}
 	}
 	glfwSetCursorPosCallback(window, mouse_callback);
+	glfwSetMouseButtonCallback(window, mouse_button_callback);
 	glfwSetScrollCallback(window, scroll_callback);
 	// tell GLFW to capture our mouse
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -287,6 +313,7 @@ int main(int argc, char* argv[])
 	Object rocket_shadow = createObject(toyrocket_path, simpleDepthShader);
 	Object spaceship = createObject(toyrocket_path, shader);
 	Object cubeMap = createObject(pathCube, cubeMapShader);
+	Object launch_ball = createObject(sphere_path, shader); 
 	Object collision1 = createObject(sphere_path, shader);
 	Object collision2 = createObject(sphere_path, shader);
 	ColladaObject sphere = createObjectCollada(pathcollada, &geom_vec, shader);
@@ -322,6 +349,7 @@ int main(int argc, char* argv[])
 	std::string pathFootballTexture = PATH_TO_TEXTURE "/football.jpg";
 	std::string pathGoldTexture = PATH_TO_TEXTURE "/gold.jpg";
 	std::string pathCoinTexture = PATH_TO_TEXTURE "/coin_mario.png";
+	std::string pathMilitaireTexture = PATH_TO_TEXTURE "/militaire.jpg";
 	std::string pathSpaceshipTexture = PATH_TO_TEXTURE "/spaceship.jpg";
 	std::string pathAnimationTexture = PATH_TO_TEXTURE "/animation.png";
 
@@ -334,6 +362,7 @@ int main(int argc, char* argv[])
 	unsigned int FootballTexture = loadTexture(pathFootballTexture.c_str());
 	unsigned int GoldTexture = loadTexture(pathGoldTexture.c_str());
 	unsigned int CoinTexture = loadTexture(pathCoinTexture.c_str());
+	unsigned int MilitaireTexture = loadTexture(pathMilitaireTexture.c_str());
 	unsigned int SpaceshipTexture = loadTexture(pathSpaceshipTexture.c_str());
 	unsigned int AnimationTexture = colladaAnim.createTexture(pathAnimationTexture.c_str());
 	
@@ -364,8 +393,8 @@ int main(int argc, char* argv[])
 	modelMatrixAnimation = glm::scale(modelMatrixAnimation, glm::vec3(0.5 * world_scale, 0.5 * world_scale, 0.5 * world_scale));
 	//---Nebuleuse---
 	glm::mat4 modelMatrixNebuleuse(1.0f);
-	modelMatrixNebuleuse = glm::translate(modelMatrixNebuleuse, glm::vec3(10* world_scale, -5 * world_scale, 5 * world_scale));
-	modelMatrixNebuleuse = glm::scale(modelMatrixNebuleuse, glm::vec3(2 * world_scale, 2 * world_scale, 2 * world_scale));
+	modelMatrixNebuleuse = glm::translate(modelMatrixNebuleuse, glm::vec3(0.0f, 2.5 * world_scale, 2.5 * world_scale));
+	modelMatrixNebuleuse = glm::scale(modelMatrixNebuleuse, glm::vec3(0.8 * world_scale, 0.8 * world_scale, 0.8 * world_scale));
 	init_NebuleuseCloud();
 	populateBuffer_Nebuleuse();
 	//---Rocket (reflexive object moving around the sun)---
@@ -375,7 +404,8 @@ int main(int argc, char* argv[])
 	rocket.model = glm::rotate(rocket.model, glm::radians(90.0f), glm::vec3(0, 0, 1));
 	rocket.model = glm::rotate(rocket.model, glm::radians(180.0f), glm::vec3(1, 0, 0));	
 	glm::mat4 modelRocket;
-	modelRocket = glm::scale(rocket.model, glm::vec3(.1,.1,.1));	
+	modelRocket = glm::scale(rocket.model, glm::vec3(.1,.1,.1));
+	glm::vec3 rocketPosition = rocket.model*glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);	
 	rocket_shadow.model = rocket.model; 
 	//---General parameters for planets rotation
     glm::vec3 rotationPoint(0.0f, 1.0f, 0.0f);
@@ -416,34 +446,13 @@ int main(int argc, char* argv[])
 	RenderingShader(BumpShader);
 	RenderingShader(shaderSpaceShip);
 	
-	//Create the cubemap texture
-	GLuint cubeMapTexture;
+	//Create the cubemap texture	
 	glGenTextures(1, &cubeMapTexture);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, cubeMapTexture);
+	loadCubeMapTexture(PATH_TO_TEXTURE "/cubemaps/space/", cubeMapTexture);
 
-	// Set the texture parameters
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-	//This is the image you will use as your skybox
-	std::string pathToCubeMapSpaceCyril = PATH_TO_TEXTURE "/cubemaps/space/";
-
-	std::map<std::string, GLenum> facesToLoad = { 
-		{pathToCubeMapSpaceCyril + "1.jpg",GL_TEXTURE_CUBE_MAP_POSITIVE_X},
-		{pathToCubeMapSpaceCyril + "2.jpg",GL_TEXTURE_CUBE_MAP_POSITIVE_Y},
-		{pathToCubeMapSpaceCyril + "3.jpg",GL_TEXTURE_CUBE_MAP_POSITIVE_Z},
-		{pathToCubeMapSpaceCyril + "4.jpg",GL_TEXTURE_CUBE_MAP_NEGATIVE_X},
-		{pathToCubeMapSpaceCyril + "5.jpg",GL_TEXTURE_CUBE_MAP_NEGATIVE_Y},
-		{pathToCubeMapSpaceCyril + "6.jpg",GL_TEXTURE_CUBE_MAP_NEGATIVE_Z},
-	};
-
-	for (std::pair<std::string, GLenum> pair : facesToLoad) {
-		loadCubemapFace(pair.first.c_str(), pair.second);
-	}
+	glGenTextures(1, &cubeMapTextureGO);
+	loadCubeMapTexture(PATH_TO_TEXTURE "/cubemaps/GO/", cubeMapTextureGO);
+	
 
 
 	//glfwSwapInterval(1);
@@ -489,6 +498,9 @@ int main(int argc, char* argv[])
 		//Physical world set up
 		dynamicsWorld->stepSimulation(deltaTime);
 
+		//If collision between Sun and spaceship
+		check_collision_sun_spaceship(spaceshipRigidBody, CollisionObject3);
+
 		//Shadow shader
 		simpleDepthShader.use();
         simpleDepthShader.setMatrix4("lightSpaceMatrix", lightSpaceMatrix);
@@ -507,10 +519,13 @@ int main(int argc, char* argv[])
 		shader.setMatrix4("lightSpaceMatrix", lightSpaceMatrix);
 		shader.setInteger("MyTexture", 1);
 		shader.setInteger("shadowMap", 2);
+
+		//Update launched ball
+		updateLaunchedSpheres(launch_ball, deltaTime, shader, MilitaireTexture);
 		
 		//Draw earth
 		//Set the parameters to allow the earth to rotate around the sun
-		float rotationSpeed{glm::radians(45.0f)}; // 30 degrees per second
+		float rotationSpeed{glm::radians(10.0f)}; // 30 degrees per second
 		rotationAngle += rotationSpeed * deltaTime;
 		glm::vec3 rotationAxis(0.0f, 1.0f, 0.0f); 
 		glm::quat rotationQuaternion = glm::angleAxis(rotationAngle, glm::normalize(rotationAxis));
@@ -536,7 +551,7 @@ int main(int argc, char* argv[])
 		//sun.draw();
 
 		//Draw moon 
-		float earthOrbitRadius = 5 * world_scale;
+		float earthOrbitRadius = 3 * world_scale;
 		glm::vec3 earthPosition = modelMatrix*glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
 		glm::vec3 moonPosition = glm::vec3(
         earthPosition.x + earthOrbitRadius * std::cos(now),
@@ -544,7 +559,7 @@ int main(int argc, char* argv[])
         earthPosition.z + earthOrbitRadius * std::sin(now)
     	);
 		glm::mat4 modelMatrixMoon = glm::translate(glm::mat4(1.0f), moonPosition);
-		modelMatrixMoon = glm::scale(modelMatrixMoon, glm::vec3(0.8 * world_scale, 0.8 * world_scale, 0.8 * world_scale));
+		modelMatrixMoon = glm::scale(modelMatrixMoon, glm::vec3(0.6 * world_scale, 0.6 * world_scale, 0.6 * world_scale));
 		glm::mat4 inverseModelMoon = glm::transpose( glm::inverse(modelMatrixMoon));
 		shader.setMatrix4("M", modelMatrixMoon);
 		shader.setMatrix4("itM", inverseModelMoon);
@@ -560,7 +575,7 @@ int main(int argc, char* argv[])
 			}
 			updateMeteorite(CollisionObject2, collision2, CollisionObject2Transfo, MeteoriteTexture, shader);
 		}
-		//DrawMeteorite(shader, MeteoriteTexture, deltaTime); //A DECOMMENTER!!!!!!!!!!!!!!!!!!
+		DrawMeteorite(shader, MeteoriteTexture, deltaTime); //A DECOMMENTER!!!!!!!!!!!!!!!!!!
 
 		//Draw collada object (Sphere)
 		glm::mat4 inverseModelCollada = glm::transpose(glm::inverse(sphere.model));
@@ -679,11 +694,28 @@ int main(int argc, char* argv[])
 		cubeMapShader.use();
 		cubeMapShader.setMatrix4("V", view);
 		cubeMapShader.setMatrix4("P", perspective);
-		cubeMapShader.setInteger("cubemapTexture", 0);
+		if (!explosion){
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_CUBE_MAP, cubeMapTexture);
+			cubeMapShader.setInteger("cubemapSampler", 0);
+		} else {
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_CUBE_MAP, cubeMapTextureGO);
+			cubeMapShader.setInteger("cubemapSampler", 1);
+		}
 		cubeMap.draw();
-		glDepthFunc(GL_LESS);
+		
+		//Change camera view
+		if (earth_pos){
+			camera.move_earth(glm::vec3(earthPosition.x, earthPosition.y + 3*world_scale, earthPosition.z));
+		}
+
+		if (rocket_pos){
+			camera.move_rocket(glm::vec3(rocketPosition.x +0.2*sin(rotationAngle), rocketPosition.y, rocketPosition.z +0.2*cos(rotationAngle)));
+		}
 
 		fps(now);
+		glDepthFunc(GL_LESS);
 		glfwSwapBuffers(window);
 	}
 
@@ -721,10 +753,9 @@ void InitMeteorite(char const * meteorite_path, Shader shader, float weight){
 		Object meteorite(meteorite_path);
 		meteorite.makeObject(shader);
 
-		// G�n�rer des positions al�atoires dans le cube
 		glm::vec3 startPosition = glm::vec3(dis(gen), dis(gen), dis(gen));
 
-		btRigidBody* meteoriteBody = Collision::createRigidBody(dynamicsWorld, 1.5 * world_scale, weight, btVector3(startPosition.x, startPosition.y, startPosition.z));
+		btRigidBody* meteoriteBody = Collision::createRigidBody(dynamicsWorld, 0.5 * world_scale, weight, btVector3(startPosition.x, startPosition.y, startPosition.z));
 		meteoriteBodies.push_back(meteoriteBody);
 
 		meteoriteBody->setLinearVelocity(btVector3(0, 0, 0));
@@ -809,6 +840,21 @@ void updateSpaceship(btRigidBody* spaceshipRigidBody, Object& spaceship, Shader&
 }
 
 
+void check_collision_sun_spaceship(btRigidBody* spaceshipRigidBody, btRigidBody* CollisionObject3){
+	int numManifolds = dynamicsWorld->getDispatcher()->getNumManifolds();
+	for (int i = 0; i < numManifolds; i++) {
+		btPersistentManifold* contactManifold = dynamicsWorld->getDispatcher()->getManifoldByIndexInternal(i);
+		const btCollisionObject* objA = contactManifold->getBody0();
+		const btCollisionObject* objB = contactManifold->getBody1();
+
+		if ((objA == CollisionObject3 && objB == spaceshipRigidBody) || (objA == spaceshipRigidBody && objB == CollisionObject3)) {
+			explosion = true;
+			break;
+		}
+	}
+}
+
+
 
 
 //GENERAL FUNCTIONS
@@ -873,6 +919,16 @@ void processInput(GLFWwindow* window, Object* spaceship) {
 	if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS){
 		meteorite_collision = true;
 	}
+	if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS){
+		earth_pos = true; 
+	}
+	if (glfwGetKey(window, GLFW_KEY_V) == GLFW_PRESS){
+		earth_pos = false; 
+	}
+		
+
+	if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS)
+		rocket_pos = !rocket_pos; 
 	
 	
 }
@@ -898,6 +954,16 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
 
     camera.ProcessMouseMovement(xoffset, yoffset);
 }
+
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods){
+    if(button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS){
+        count_launched_ball += 1;
+    }
+    if(button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE){
+        // Code pour le clic gauche relâché
+    }
+}
+
 
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
@@ -986,7 +1052,7 @@ void init_shadow(unsigned int& depthMapFBO, unsigned int& depthMap){
 }
 
 void add_shadows(unsigned int depthMapFBO, Shader simpleDepthShader, glm::mat4 modelRocket, Object rocket_shadow, Object sun, Object sun_shadow){
-	//glViewport(0, 0, width, height);
+	glViewport(0, 0, width, height);
 	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
 	glClear(GL_DEPTH_BUFFER_BIT);
 	glActiveTexture(GL_TEXTURE0);
@@ -995,7 +1061,7 @@ void add_shadows(unsigned int depthMapFBO, Shader simpleDepthShader, glm::mat4 m
 	simpleDepthShader.setMatrix4("model", sun.model);		
 	sun_shadow.draw();		
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	//glViewport(0, 0, width*2, height*2);
+	glViewport(0, 0, width, height);
 }
 
 //NEBULEUSE FUNCTIONS TO DRAW
@@ -1025,7 +1091,7 @@ void populateBuffer_Nebuleuse() {
 
 void drawNebuleuse() {
 	glMemoryBarrier(GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
-	glPointSize(2.5 * world_scale);
+	glPointSize(2.5f);
 	glBindVertexArray(vaoNebuleuse);
 	glDrawArrays(GL_POINTS, 0, numParticlesNebuleuse);
 	glBindVertexArray(0);
@@ -1034,24 +1100,98 @@ void drawNebuleuse() {
 
 //SCORE & GOLD FUNCTIONS
 glm::vec3 generateNewGoldPosition() {
-    float x = -10 *  world_scale + std::rand() % 21;
-    float y = -10 *  world_scale + std::rand() % 21;
-    float z = -10 *  world_scale + std::rand() % 21;
+	std::random_device rd;
+	std::mt19937 gen(rd());
+	std::uniform_real_distribution<> dis(-10 * world_scale, 10 * world_scale);
 
-    return glm::vec3(x, y, z);
+	float x = dis(gen);
+	float y = dis(gen);
+	float z = dis(gen);
+
+	return glm::vec3(x, y, z);
 }
 
-void check_get_gold(Object &gold) {
-    float distanceThreshold = 2.5f; 
-    float distance = glm::distance(currentSpaceShipPosition, goldPosition);
+void check_get_gold(Object& gold) {
+	float distanceThreshold = 2.5f * world_scale / 5;
+	float distance = glm::distance(currentSpaceShipPosition, goldPosition);
 
-    if (distance < distanceThreshold) {
-        score++;
-        goldPosition = generateNewGoldPosition();
+	if (distance < distanceThreshold) {
+		score++;
+		goldPosition = generateNewGoldPosition();
 		gold.model = glm::translate(glm::mat4(1.0f), goldPosition);
-    }
+	}
 }
 
+void create_launch_ball(Object sphere_ball) {
+	//Transform
+	btTransform sphereRigidBodyTransfo;
+
+	//Position & velocity
+    glm::vec3 initialPosition = currentSpaceShipPosition + camera.Front * distanceFromCamera;
+    btRigidBody* sphereRigidBody = Collision::createRigidBody(dynamicsWorld, 0.5f, 100.0, btVector3(initialPosition.x, initialPosition.y, initialPosition.z));
+
+    glm::vec3 launchDirection = glm::normalize(camera.Front);
+    float launchSpeed = 100.0f; 
+	sphereRigidBody->getMotionState()->getWorldTransform(sphereRigidBodyTransfo);
+    sphereRigidBody->setLinearVelocity(btVector3(launchDirection.x * launchSpeed, launchDirection.y * launchSpeed, launchDirection.z * launchSpeed));
+
+	launchedSpheres.emplace_back(sphere_ball, sphereRigidBody, sphereRigidBodyTransfo);
+}
+
+void updateLaunchedSpheres(Object sphere_ball, float deltaTime, Shader shader, unsigned int texture) {
+	if (count_launched_ball > launchedSpheres.size()){
+		create_launch_ball(sphere_ball);
+	} 
+
+	auto it = launchedSpheres.begin();
+    while (it != launchedSpheres.end()) {
+        it->timeAlive += deltaTime;
+        if (it->timeAlive > 5.0f) {
+            it = launchedSpheres.erase(it);
+			count_launched_ball -= 1;
+        } else {
+            it->sphereRigidBody->getMotionState()->getWorldTransform(it->sphereRigidBodyTransfo);
+            it->sphereObject.model = glm::translate(glm::mat4(1.0f), glm::vec3(it->sphereRigidBodyTransfo.getOrigin().getX(), it->sphereRigidBodyTransfo.getOrigin().getY(), it->sphereRigidBodyTransfo.getOrigin().getZ()));
+			it->sphereObject.model = glm::scale(it->sphereObject.model, glm::vec3(0.5f, 0.5f, 0.5f));
+            glm::mat4 inverseBall = glm::transpose(glm::inverse(it->sphereObject.model));
+            shader.setMatrix4("M", it->sphereObject.model);
+            shader.setMatrix4("itM", inverseBall);
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, texture);
+            it->sphereObject.draw();
+
+            ++it;
+        }
+    } 
+}
+
+
+void loadCubeMapTexture(const std::string& basePath, GLuint textureID) {
+	// Bind the cube map texture
+	glActiveTexture(GL_TEXTURE0 + textureID - 1); // GL_TEXTURE0 + n pour GL_TEXTUREn
+	glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+
+	// Set the texture parameters
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	// Load the image for each face of the cube map
+	std::map<std::string, GLenum> facesToLoad = {
+		{basePath + "1.jpg", GL_TEXTURE_CUBE_MAP_POSITIVE_X},
+		{basePath + "2.jpg", GL_TEXTURE_CUBE_MAP_POSITIVE_Y},
+		{basePath + "3.jpg", GL_TEXTURE_CUBE_MAP_POSITIVE_Z},
+		{basePath + "4.jpg", GL_TEXTURE_CUBE_MAP_NEGATIVE_X},
+		{basePath + "5.jpg", GL_TEXTURE_CUBE_MAP_NEGATIVE_Y},
+		{basePath + "6.jpg", GL_TEXTURE_CUBE_MAP_NEGATIVE_Z},
+	};
+
+	for (const auto& pair : facesToLoad) {
+		loadCubemapFace(pair.first.c_str(), pair.second);
+	}
+}
 
 //CHECK MAX CAPACITIES OF THE GPU
 void check_max_GPU(){
