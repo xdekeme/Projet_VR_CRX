@@ -10,9 +10,9 @@ in GS_OUT {
 
 void main() { 
     float distance = length(fs_in.fragPos.xy);
-    vec3 color1 = vec3(1.0, 1.0, 0.0); // Jaune
-    vec3 color2 = vec3(1.0, 0.5, 0.0); // Orange
-    vec3 color3 = vec3(1.0, 0.0, 0.0); // Rouge
+    vec3 color1 = vec3(1.0, 1.0, 0.0); 
+    vec3 color2 = vec3(1.0, 0.5, 0.0);
+    vec3 color3 = vec3(1.0, 0.0, 0.0); 
 
     float normalizedDistance = distance / 20.0;
 

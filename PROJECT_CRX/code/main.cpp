@@ -119,6 +119,8 @@ bool earth_pos = false;
 //--Cubemap--
 GLuint cubeMapTexture;
 GLuint cubeMapTextureGO;
+//--EarthSpeed--
+float speed_offset = 0;
 
 
 
@@ -518,7 +520,7 @@ int main(int argc, char* argv[])
 		
 		//Draw earth
 		//Set the parameters to allow the earth to rotate around the sun
-		float rotationSpeed{glm::radians(10.0f)}; // 30 degrees per second
+		float rotationSpeed{glm::radians(10.0f + speed_offset)}; // 30 degrees per second
 		rotationAngle += rotationSpeed * deltaTime;
 		glm::vec3 rotationAxis(0.0f, 1.0f, 0.0f); 
 		glm::quat rotationQuaternion = glm::angleAxis(rotationAngle, glm::normalize(rotationAxis));
@@ -907,6 +909,15 @@ void processInput(GLFWwindow* window, Object* spaceship) {
 		earth_pos = false; 
 		ignoreMouse = false;
 	}
+	if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS){
+		speed_offset += 1.0; 
+	}
+
+	if (glfwGetKey(window, GLFW_KEY_N) == GLFW_PRESS){
+		speed_offset -= 1.0; 
+	}
+
+	
 	
 }
 

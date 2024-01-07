@@ -29,14 +29,12 @@ void main() {
         float phi = hash(id + time + 1234.0) * 3.14159265359; 
         float radius = 1.0; // Rayon de la sphère
 
-        // Conversion en coordonnées cartésiennes
         float x = radius * sin(phi) * cos(theta);
         float y = radius * sin(phi) * sin(theta);
         float z = radius * cos(phi);
 
-        // Couleur des particules dans les tons bleu, vert et mauve
         float hue = theta / 6.28318530718;
-        hue = mix(0.55, 0.75, hue); // Ajustement pour bleu-vert-mauve
+        hue = mix(0.55, 0.75, hue); 
         float saturation = 0.6 + hash(id * 13.0) * 0.4;
         float brightness = 0.5 + hash(time * 7.0 + id) * 0.5;
         vec3 color = hsb2rgb(vec3(hue, saturation, brightness));
