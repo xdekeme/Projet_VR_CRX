@@ -185,7 +185,7 @@ int main(int argc, char* argv[])
 		throw std::runtime_error("Failed to initialise GLFW \n");
 	}
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0); //A CHANGER EN 3!
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3); //Change to 0 if you are using a Mac and you must also comment different other lines
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
@@ -278,7 +278,7 @@ int main(int argc, char* argv[])
 	char fileFragNebuleuse[] = PATH_TO_SOURCES "/fragSrc_Nebuleuse.txt";
 	char ComputeShaderpath[] = PATH_TO_SOURCES "/ComputeShader.txt";
 	Shader NebuleuseShader = Shader(fileVertNebuleuse, fileFragNebuleuse);
-	//Shader ComputeShaderNebuleuse = Shader(ComputeShaderpath); //A decommenter !!!!!
+	Shader ComputeShaderNebuleuse = Shader(ComputeShaderpath); //Comment here if you are on Mac
 
 	//Shader shadows
 	char fileVertShadow[] = PATH_TO_SOURCES "/vertSrc_Shadow.txt";
@@ -590,7 +590,6 @@ int main(int argc, char* argv[])
 		shader.setMatrix4("itM", inverseModelGold);
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, GoldTexture);
-		//glBindTexture(GL_TEXTURE_2D, CoinTexture); // A DECOMMENTER POUR RAPHAEL!!!!!!!!!!!!!!!!!!
 		gold.draw();
 		check_get_gold(gold);
 
@@ -667,17 +666,17 @@ int main(int argc, char* argv[])
 		glBindTexture(GL_TEXTURE_2D, AnimationTexture);
 		colladaAnim.drawAnimation(vao, indices);
 
-		// //Nebuleuse
-		// ComputeShaderNebuleuse.use(); 
-		// ComputeShaderNebuleuse.setFloat("time", now);
-		// ComputeShaderNebuleuse.setInteger("numParticles", numParticlesNebuleuse);
-		// glDispatchCompute(32, 1, 1);
-		// glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-		// NebuleuseShader.use();
-		// NebuleuseShader.setMatrix4("M", modelMatrixNebuleuse);
-		// NebuleuseShader.setMatrix4("V", view);
-		// NebuleuseShader.setMatrix4("P", perspective);
-		// drawNebuleuse();
+		//Nebuleuse - To comment the whole block if you are on Mac
+		ComputeShaderNebuleuse.use(); 
+		ComputeShaderNebuleuse.setFloat("time", now);
+		ComputeShaderNebuleuse.setInteger("numParticles", numParticlesNebuleuse);
+		glDispatchCompute(32, 1, 1);
+		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+		NebuleuseShader.use();
+		NebuleuseShader.setMatrix4("M", modelMatrixNebuleuse);
+		NebuleuseShader.setMatrix4("V", view);
+		NebuleuseShader.setMatrix4("P", perspective);
+		drawNebuleuse();
 
 		//Send the cubemap 
 		cubeMapShader.use();
@@ -1052,7 +1051,7 @@ void add_shadows(unsigned int depthMapFBO, Shader simpleDepthShader, glm::mat4 m
 	simpleDepthShader.setMatrix4("model", sun.model);		
 	sun_shadow.draw();		
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	glViewport(0, 0, width, height);
+	glViewport(0, 0, width*2, height*2); //Remove *2 if using an extern screen
 }
 
 //NEBULEUSE FUNCTIONS TO DRAW
