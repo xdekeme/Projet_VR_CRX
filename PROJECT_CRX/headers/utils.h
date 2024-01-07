@@ -1,3 +1,4 @@
+//Source: https://github.com/hasinaxp/skeletal_animation-_assimp_opengl/blob/master/
 #pragma once
 #include <iostream>
 #include <string>

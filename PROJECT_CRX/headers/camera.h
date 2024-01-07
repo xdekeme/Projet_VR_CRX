@@ -146,16 +146,17 @@ public:
 
     void move_earth(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f))
     {
-        this->ProcessKeyboardRotation(-1, 0.0, 0.066667);
         this->Position = position; 
+
+        glm::vec3 targetPosition = glm::vec3(0.0f, 0.0f, 0.0f); 
+        glm::vec3 direction = glm::normalize(targetPosition - this->Position);
+
+        this->Front = direction;
+
+        this->Right = glm::normalize(glm::cross(this->Front, this->WorldUp));
+        this->Up    = glm::normalize(glm::cross(this->Right, this->Front));
     }
 
-    void move_rocket(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f))
-    {
-        this->ProcessKeyboardRotation(-1, 0.0, 0.3);
-        this->Position = position; 
-        
-    }
 
 private:
     // calculates the front vector from the Camera's (updated) Euler Angles

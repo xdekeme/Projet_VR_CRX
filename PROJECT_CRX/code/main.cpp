@@ -21,7 +21,6 @@
 #include <map>
 
 #include "../headers/camera.h"
-//#include "../headers/spaceship.h"
 #include "../headers/shader.h"
 #include "../headers/object.h"
 #include "../headers/object_bumping.h"
@@ -62,6 +61,7 @@ float distanceFromCamera = 5.0f;
 float offsetBelowCamera = -2.0f;
 float offsetRight = 0.1f;
 float offsetUp = 0.1f;
+bool ignoreMouse = false;
 //---Game---
 glm::vec3 goldPosition;
 uint score = 0;
@@ -116,7 +116,6 @@ glm::vec3 currentSpaceShipPosition;
 bool lock_vision = true;
 //--Teleportation--
 bool earth_pos = false;
-bool rocket_pos = false;
 //--Cubemap--
 GLuint cubeMapTexture;
 GLuint cubeMapTextureGO;
@@ -260,10 +259,6 @@ int main(int argc, char* argv[])
 	//Shader for Rocket compilation
 	char fileFragRocket[] = PATH_TO_SOURCES "/fragSrc_Rocket.txt";
 	Shader shaderRocket = Shader(fileVert, fileFragRocket, fileGeom);
-
-	//Shader for SpaceShip compilation
-	char fileVertSpaceShip[] = PATH_TO_SOURCES "/vertSrc_SpaceShip.txt";
-	Shader shaderSpaceShip = Shader(fileVertSpaceShip, fileFrag, fileGeom);
 
 	//Shader with bump mapping compilation
 	char fileVertBump[] = PATH_TO_SOURCES "/vertSrc_BumpMapping.txt";
@@ -440,11 +435,9 @@ int main(int argc, char* argv[])
 		}
 	};
 
-
 	//Rendering
 	RenderingShader(shader);
 	RenderingShader(BumpShader);
-	RenderingShader(shaderSpaceShip);
 	
 	//Create the cubemap texture	
 	glGenTextures(1, &cubeMapTexture);
@@ -575,7 +568,7 @@ int main(int argc, char* argv[])
 			}
 			updateMeteorite(CollisionObject2, collision2, CollisionObject2Transfo, MeteoriteTexture, shader);
 		}
-		DrawMeteorite(shader, MeteoriteTexture, deltaTime); //A DECOMMENTER!!!!!!!!!!!!!!!!!!
+		DrawMeteorite(shader, MeteoriteTexture, deltaTime); 
 
 		//Draw collada object (Sphere)
 		glm::mat4 inverseModelCollada = glm::transpose(glm::inverse(sphere.model));
@@ -595,6 +588,12 @@ int main(int argc, char* argv[])
 		//glBindTexture(GL_TEXTURE_2D, CoinTexture); // A DECOMMENTER POUR RAPHAEL!!!!!!!!!!!!!!!!!!
 		gold.draw();
 		check_get_gold(gold);
+
+		//Spaceship
+		updateSpaceship(spaceshipRigidBody, spaceship, shader);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, SpaceshipTexture);
+		spaceship.draw();
 
 		//Draw bumping sun
 		BumpShader.use();
@@ -650,21 +649,6 @@ int main(int argc, char* argv[])
 		shaderRocket.setFloat("time", explosionTime);
 		rocket.draw();
 
-		//Spaceship
-		shaderSpaceShip.use();
-		updateSpaceship(spaceshipRigidBody, spaceship, shaderSpaceShip);
-		shaderSpaceShip.setMatrix4("V", view);
-		shaderSpaceShip.setMatrix4("P", perspective);
-		shaderSpaceShip.setVector3f("u_view_pos", camera.Position);
-		shaderSpaceShip.setVector3f("light.light_pos", lightPos);
-		shaderSpaceShip.setFloat("explosionIntensity", explosionIntensity);
-		shaderSpaceShip.setFloat("time", explosionTime);
-		shaderSpaceShip.setInteger("MyTexture", 1);
-		glDepthFunc(GL_LEQUAL);
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, SpaceshipTexture);
-		spaceship.draw();
-
 		//Animation
 		AnimationShader.use();
 		AnimationShader.setMatrix4("M", modelMatrixAnimation);
@@ -708,10 +692,6 @@ int main(int argc, char* argv[])
 		//Change camera view
 		if (earth_pos){
 			camera.move_earth(glm::vec3(earthPosition.x, earthPosition.y + 3*world_scale, earthPosition.z));
-		}
-
-		if (rocket_pos){
-			camera.move_rocket(glm::vec3(rocketPosition.x +0.2*sin(rotationAngle), rocketPosition.y, rocketPosition.z +0.2*cos(rotationAngle)));
 		}
 
 		fps(now);
@@ -812,7 +792,7 @@ void setup_spaceship() {
 	glm::vec3 initialSpaceShipPosition = camera.Position + camera.Front * distanceFromCamera;
 	initialSpaceShipPosition.y += offsetBelowCamera;
 
-	spaceshipRigidBody = Collision::createRigidBody(dynamicsWorld, 2 * world_scale, 99999, btVector3(initialSpaceShipPosition.x, initialSpaceShipPosition.y, initialSpaceShipPosition.z)); // Masse = 0 pour un objet immobile
+	spaceshipRigidBody = Collision::createRigidBody(dynamicsWorld, 1 * world_scale, 99999, btVector3(initialSpaceShipPosition.x, initialSpaceShipPosition.y, initialSpaceShipPosition.z)); // Masse = 0 pour un objet immobile
 	spaceshipRigidBody->setLinearVelocity(btVector3(5, 5, 5));
 }
 
@@ -921,21 +901,21 @@ void processInput(GLFWwindow* window, Object* spaceship) {
 	}
 	if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS){
 		earth_pos = true; 
+		ignoreMouse = true;
 	}
 	if (glfwGetKey(window, GLFW_KEY_V) == GLFW_PRESS){
 		earth_pos = false; 
+		ignoreMouse = false;
 	}
-		
-
-	if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS)
-		rocket_pos = !rocket_pos; 
-	
 	
 }
 
 //Source from LearnOpenGl: https://learnopengl.com/code_viewer_gh.php?code=src/5.advanced_lighting/4.normal_mapping/normal_mapping.cpp
 void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
 {
+	if (ignoreMouse){
+		return;
+	}
 	
     float xpos = static_cast<float>(xposIn);
     float ypos = static_cast<float>(yposIn);

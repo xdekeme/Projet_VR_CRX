@@ -1,4 +1,5 @@
 //Source: https://github.com/hasinaxp/skeletal_animation-_assimp_opengl/blob/master/main.cpp
+
 #ifndef COLLADAANIMATION_H
 #define COLLADAANIMATION_H
 

@@ -1,3 +1,6 @@
+//Source Shadows: https://learnopengl.com/Advanced-Lighting/Shadows/Shadow-Mapping
+//Source BumpMapping: https://learnopengl.com/Advanced-Lighting/Normal-Mapping 
+
 #version 330 core
 
 in VS_OUT {

@@ -1,3 +1,4 @@
+//Source: https://www.codeproject.com/script/Articles/ViewDownloads.aspx?aid=625701
 #ifndef COLLADAOBJECT_H
 #define COLLADAOBJECT_H
 

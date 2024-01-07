@@ -1,3 +1,5 @@
+//Source: https://learnopengl.com/Advanced-Lighting/Normal-Mapping
+
 #ifndef BUMPINGOBJECT_H
 #define BUMPINGOBJECT_H
 
