@@ -120,7 +120,7 @@ bool earth_pos = false;
 GLuint cubeMapTexture;
 GLuint cubeMapTextureGO;
 //--EarthSpeed--
-float speed_offset = 0;
+float rotation_speed = 10.0f;
 
 
 
@@ -154,6 +154,7 @@ void updateLaunchedSpheres(Object launch_ball, float deltaTime, Shader shader, u
 void load_space_cubemap();
 void load_GO_cubemap();
 void loadCubeMapTexture(const std::string& basePath, GLuint textureID);
+int getSign(float value); 
 
 
 
@@ -402,8 +403,10 @@ int main(int argc, char* argv[])
 	rocket.model = glm::rotate(rocket.model, glm::radians(180.0f), glm::vec3(1, 0, 0));	
 	glm::mat4 modelRocket;
 	modelRocket = glm::scale(rocket.model, glm::vec3(.1,.1,.1));
-	glm::vec3 rocketPosition = rocket.model*glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);	
-	rocket_shadow.model = rocket.model; 
+
+	glm::vec3 rocketPosition = rocket.model*glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+	
+	rocket_shadow.model = rocket.model;
 	//---General parameters for planets rotation
     glm::vec3 rotationPoint(0.0f, 1.0f, 0.0f);
     glm::vec3 rotationAxis(0.0f, 1.0f, 0.0f);
@@ -520,7 +523,7 @@ int main(int argc, char* argv[])
 		
 		//Draw earth
 		//Set the parameters to allow the earth to rotate around the sun
-		float rotationSpeed{glm::radians(10.0f + speed_offset)}; // 30 degrees per second
+		float rotationSpeed{glm::radians(rotation_speed)};
 		rotationAngle += rotationSpeed * deltaTime;
 		glm::vec3 rotationAxis(0.0f, 1.0f, 0.0f); 
 		glm::quat rotationQuaternion = glm::angleAxis(rotationAngle, glm::normalize(rotationAxis));
@@ -640,7 +643,7 @@ int main(int argc, char* argv[])
 		shaderRocket.use();
 		rocket.model = glm::rotate(rocket.model, glm::radians(2.0f), glm::vec3(0, 0, 1));
 		modelRocket = glm::mat4(rotationQuaternion);
-		modelRocket = glm::scale(glm::translate(glm::rotate(modelRocket, glm::radians(90.0f), glm::vec3(0, 0, 1)), glm::vec3(0.0, 0.0, -40.0)), glm::vec3(.5*world_scale,.5*world_scale,.5*world_scale));
+		modelRocket = glm::scale(glm::translate(glm::rotate(modelRocket, glm::radians(getSign(rotation_speed) * 90.0f), glm::vec3(0, 0, 1)), glm::vec3(0.0, 0.0, -40.0)), glm::vec3(.5*world_scale,.5*world_scale,.5*world_scale));
 		glm::mat4 inverseRocket = glm::transpose( glm::inverse(modelRocket));
 		shaderRocket.setMatrix4("M", modelRocket);
 		shaderRocket.setMatrix4("itM", inverseRocket);
@@ -910,15 +913,12 @@ void processInput(GLFWwindow* window, Object* spaceship) {
 		ignoreMouse = false;
 	}
 	if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS){
-		speed_offset += 1.0; 
+		rotation_speed += 1.0f;
 	}
 
 	if (glfwGetKey(window, GLFW_KEY_N) == GLFW_PRESS){
-		speed_offset -= 1.0; 
+		rotation_speed -= 1.0f;
 	}
-
-	
-	
 }
 
 //Source from LearnOpenGl: https://learnopengl.com/code_viewer_gh.php?code=src/5.advanced_lighting/4.normal_mapping/normal_mapping.cpp
@@ -1182,6 +1182,16 @@ void loadCubeMapTexture(const std::string& basePath, GLuint textureID) {
 	for (const auto& pair : facesToLoad) {
 		loadCubemapFace(pair.first.c_str(), pair.second);
 	}
+}
+
+int getSign(float value) {
+    if (value > 0.0f) {
+        return 1;  
+    } else if (value < 0.0f) {
+        return -1; 
+    } else {
+        return 0; 
+    }
 }
 
 //CHECK MAX CAPACITIES OF THE GPU
